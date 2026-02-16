@@ -705,12 +705,15 @@ function resetForm() {
 }
 
 function showScanError(errorMsg) {
+    // Chamar endpoint de reset no servidor
+    fetch('/api/reset', { method: 'POST' }).catch(err => console.error(err));
+    
     // Mostrar erro no statusSection de forma visual
     statusSection.style.display = 'block';
     resultsSection.style.display = 'none';
     
     // Atualizar UI com erro
-    document.getElementById('currentStepTitle').innerHTML = '<i class="fas fa-exclamation-circle" style="color: #f44336;"></i> Erro ao Iniciar Varredura';
+    document.getElementById('currentStepTitle').innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro ao Iniciar Varredura';
     document.getElementById('currentStepTitle').style.color = '#f44336';
     
     document.getElementById('currentStepDesc').textContent = errorMsg;
@@ -720,31 +723,32 @@ function showScanError(errorMsg) {
     document.getElementById('progressFill').style.width = '0%';
     document.getElementById('progressPercent').textContent = '0%';
     
-    // Mostrar botão de tentar novamente
-    const retryBtnHTML = `
-        <div style="margin-top: 20px; text-align: center;">
-            <button onclick="() => { statusSection.style.display = 'none'; domainInput.focus(); }" 
-                    class="btn btn-primary" style="margin-right: 10px;">
-                <i class="fas fa-arrow-left"></i> Voltar
-            </button>
-            <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                Se a varredura anterior não finalizou, aguarde alguns segundos antes de tentar novamente.
-            </p>
-        </div>
-    `;
-    
-    const stepsContainer = document.querySelector('.tips-container');
-    if (stepsContainer) {
-        stepsContainer.innerHTML = retryBtnHTML;
-        stepsContainer.parentElement.style.marginTop = '20px';
+    // Mostrar dica útil
+    const tipsContainer = document.querySelector('.tips-container');
+    if (tipsContainer) {
+        if (errorMsg.includes('já em progresso')) {
+            tipsContainer.innerHTML = `
+                <div class="tip" style="background-color: #fff3cd; border-left-color: #ff9800;">
+                    <i class="fas fa-info-circle"></i>
+                    <span><strong>Dica:</strong> Uma varredura anterior ainda está em andamento. Aguarde alguns segundos ou recarregue a página.</span>
+                </div>
+            `;
+        } else {
+            tipsContainer.innerHTML = `
+                <div class="tip" style="background-color: #ffebee; border-left-color: #f44336;">
+                    <i class="fas fa-warning"></i>
+                    <span><strong>Erro:</strong> ${errorMsg}</span>
+                </div>
+            `;
+        }
     }
     
-    // Auto-ocultar após 5 segundos se não houver interação
+    // Auto-voltar após 4 segundos
     setTimeout(() => {
-        if (statusSection.style.display === 'block' && !currentScanDomain) {
+        if (statusSection.style.display === 'block') {
             resetForm();
         }
-    }, 5000);
+    }, 4000);
 }
 
 async function loadReports() {
