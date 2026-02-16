@@ -20,7 +20,28 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 # Configurações
 REPORTS_DIR = Path("reports")
 REPORTS_DIR.mkdir(exist_ok=True)
-SCAN_STATUS = {"running": False, "progress": 0, "current_task": "", "error": None}
+SCAN_STATUS = {
+    "running": False,
+    "progress": 0,
+    "current_task": "",
+    "current_step": 0,
+    "total_steps": 8,
+    "error": None,
+    "start_time": None,
+    "status_message": ""
+}
+
+# Mensagens amigáveis para cada etapa
+STEP_MESSAGES = {
+    1: {"title": "📡 Obtendo Informações DNS", "desc": "Consultando registros DNS..."},
+    2: {"title": "🔍 Enumerando Subdomínios", "desc": "Procurando por subdomínios..."},
+    3: {"title": "🔌 Escaneando Portas", "desc": "Verificando portas do servidor..."},
+    4: {"title": "🕵️ Coletando OSINT", "desc": "Buscando informações públicas..."},
+    5: {"title": "🎯 Verificando Vulnerabilidades", "desc": "Analisando possíveis falhas..."},
+    6: {"title": "🌐 Verificando Web", "desc": "Escaneando tecnologias web..."},
+    7: {"title": "📂 Buscando Diretórios", "desc": "Procurando por diretórios ocultos..."},
+    8: {"title": "📊 Gerando Relatório", "desc": "Compilando todos os dados..."}
+}
 
 
 def check_command_exists(command: str) -> bool:
@@ -74,11 +95,53 @@ def all_requirements_met() -> bool:
     return True
 
 
+def update_scan_progress(step: int, message: str = None):
+    """Atualiza o progresso do scan."""
+    SCAN_STATUS["current_step"] = step
+    SCAN_STATUS["progress"] = int((step / SCAN_STATUS["total_steps"]) * 100)
+    
+    if step in STEP_MESSAGES:
+        step_info = STEP_MESSAGES[step]
+        SCAN_STATUS["current_task"] = step_info["title"]
+        SCAN_STATUS["status_message"] = step_info["desc"]
+    elif message:
+        SCAN_STATUS["current_task"] = message
+
+
 def run_recon(domain: str) -> dict:
     """Executa o reconhecimento de um domínio."""
     try:
+        from datetime import datetime as dt
+        
         SCAN_STATUS["running"] = True
         SCAN_STATUS["error"] = None
+        SCAN_STATUS["start_time"] = dt.now().isoformat()
+        SCAN_STATUS["current_step"] = 0
+        SCAN_STATUS["progress"] = 0
+        
+        # Fase 1: DNS
+        update_scan_progress(1)
+        
+        # Fase 2: Subdomínios
+        update_scan_progress(2)
+        
+        # Fase 3: Portas
+        update_scan_progress(3)
+        
+        # Fase 4: OSINT
+        update_scan_progress(4)
+        
+        # Fase 5: Vulnerabilidades
+        update_scan_progress(5)
+        
+        # Fase 6: Web
+        update_scan_progress(6)
+        
+        # Fase 7: Diretórios
+        update_scan_progress(7)
+        
+        # Fase 8: Relatório
+        update_scan_progress(8)
         
         # Executar recon_script.py
         cmd = ["/usr/bin/env", "python3", "recon_script.py", "-d", domain]
@@ -100,6 +163,8 @@ def run_recon(domain: str) -> dict:
         json_file = REPORTS_DIR / f"recon_report_{domain}.json"
         html_file = REPORTS_DIR / f"recon_report_{domain}.html"
         
+        SCAN_STATUS["progress"] = 100
+        
         return {
             "success": True,
             "domain": domain,
@@ -109,7 +174,7 @@ def run_recon(domain: str) -> dict:
         }
     
     except subprocess.TimeoutExpired:
-        SCAN_STATUS["error"] = "Reconhecimento excedeu o tempo limite (1 hora)"
+        SCAN_STATUS["error"] = "⏱️ Reconhecimento excedeu o tempo limite (1 hora)"
         return {"success": False, "error": SCAN_STATUS["error"]}
     except Exception as e:
         SCAN_STATUS["error"] = str(e)
@@ -169,6 +234,19 @@ def api_scan():
 def api_status():
     """API para obter status da varredura."""
     return jsonify(SCAN_STATUS)
+
+
+@app.route("/api/reset", methods=["POST"])
+def api_reset():
+    """API para resetar o estado da varredura (em caso de erro)."""
+    SCAN_STATUS["running"] = False
+    SCAN_STATUS["progress"] = 0
+    SCAN_STATUS["current_step"] = 0
+    SCAN_STATUS["current_task"] = ""
+    SCAN_STATUS["status_message"] = ""
+    SCAN_STATUS["error"] = None
+    SCAN_STATUS["start_time"] = None
+    return jsonify({"message": "Estado resetado com sucesso"}), 200
 
 
 @app.route("/api/reports", methods=["GET"])

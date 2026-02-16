@@ -35,15 +35,49 @@
     <div id="statusSection" class="status-section" style="display: none;">
         <div class="status-card">
             <div class="status-header">
-                <h2><i class="fas fa-hourglass-start"></i> Reconhecimento em Progresso</h2>
+                <h2><i class="fas fa-spinner fa-spin"></i> Reconhecimento em Progresso</h2>
+                <p id="domainNameStatus" class="domain-name-status"></p>
             </div>
+            
+            <!-- Progresso -->
             <div class="progress-container">
+                <div class="progress-header-inline">
+                    <span id="progressPercent" class="progress-percent">0%</span>
+                </div>
                 <div class="progress-bar">
                     <div id="progressFill" class="progress-fill"></div>
                 </div>
-                <p id="progressText" class="progress-text">Iniciando varredura...</p>
             </div>
-            <p id="statusMessage" class="status-message"></p>
+            
+            <!-- Etapa Atual -->
+            <div class="current-step-container">
+                <div class="current-step-box">
+                    <h3 id="currentStepTitle">🔄 Iniciando Varredura</h3>
+                    <p id="currentStepDesc" class="step-desc">Preparando ambiente...</p>
+                </div>
+            </div>
+            
+            <!-- Tempo -->
+            <div class="timing-info">
+                <div class="timing-item">
+                    <i class="fas fa-stopwatch"></i>
+                    <span id="elapsedTime">00:00</span>
+                    <small>decorrido</small>
+                </div>
+                <div class="timing-item">
+                    <i class="fas fa-hourglass-end"></i>
+                    <span id="estimatedTime">~2min</span>
+                    <small>estimado</small>
+                </div>
+            </div>
+            
+            <!-- Dicas -->
+            <div class="tips-container">
+                <div class="tip">
+                    <i class="fas fa-lightbulb"></i>
+                    <span id="tipText">Cada etapa pode levar alguns segundos, dependendo do tamanho do alvo.</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -246,6 +280,104 @@
     transition: width 0.3s ease;
 }
 
+.progress-header-inline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.progress-percent {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.current-step-container {
+    margin: 25px 0;
+    padding: 15px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.current-step-box h3 {
+    margin: 0 0 8px 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.step-desc {
+    margin: 0;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.timing-info {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.timing-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.timing-item i {
+    color: #667eea;
+    font-size: 1.2em;
+}
+
+.timing-item span {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #333;
+}
+
+.timing-item small {
+    color: #999;
+    font-size: 0.85em;
+}
+
+.tips-container {
+    margin-top: 20px;
+    padding: 12px 15px;
+    background: linear-gradient(135deg, #fff9e6 0%, #ffe6e6 100%);
+    border-radius: 8px;
+    border-left: 4px solid #ff9800;
+}
+
+.tip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.tip i {
+    color: #ff9800;
+    font-size: 1.1em;
+    flex-shrink: 0;
+}
+
+.domain-name-status {
+    color: #667eea;
+    font-size: 1.05em;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
 .progress-text {
     color: #666;
     font-size: 0.95em;
@@ -395,6 +527,33 @@ const resultsSection = document.getElementById('resultsSection');
 const reportsList = document.getElementById('reportsList');
 
 let currentScanDomain = null;
+let scanStartTime = null;
+
+// Dicas variadas
+const scanTips = [
+    '💡 Cada etapa pode levar alguns segundos, dependendo do tamanho do alvo.',
+    '🔒 Use os resultados responsavelmente e apenas em hosts que você tem autorização.',
+    '⚡ Quanto maior o domínio, mais tempo levará a varredura.',
+    '📊 Os relatórios HTML incluem gráficos e tabelas interativas.',
+    '🔍 TheHarvester procura por informações públicas em fontes abertas.',
+    '🛡️ Nuclei verifica vulnerabilidades conhecidas automaticamente.',
+    '⏱️ Paciência! Uma boa reconhecimento leva tempo para ser preciso.',
+    '💾 Todos os resultados são salvos em relatórios para análise posterior.'
+];
+
+let currentTipIndex = 0;
+
+function getRandomTip() {
+    const tip = scanTips[currentTipIndex];
+    currentTipIndex = (currentTipIndex + 1) % scanTips.length;
+    return tip;
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 // Event Listeners
 scanBtn.addEventListener('click', startScan);
@@ -418,6 +577,11 @@ async function startScan() {
     scanBtn.disabled = true;
     domainInput.disabled = true;
     currentScanDomain = domain;
+    scanStartTime = Date.now();
+    
+    // Definir informações iniciais
+    document.getElementById('domainNameStatus').textContent = `Alvo: ${domain}`;
+    document.getElementById('tipText').textContent = getRandomTip();
     
     try {
         const response = await fetch('/api/scan', {
@@ -427,8 +591,8 @@ async function startScan() {
         });
         
         if (!response.ok) {
-            const error = await response.json();
-            alert('Erro: ' + (error.error || 'Falha ao iniciar varredura'));
+            const errorData = await response.json();
+            showScanError(errorData.error || 'Falha ao iniciar varredura');
             resetForm();
             return;
         }
@@ -437,7 +601,7 @@ async function startScan() {
         monitorScan();
     } catch (error) {
         console.error(error);
-        alert('Erro de conexão: ' + error.message);
+        showScanError('Erro de conexão: ' + error.message);
         resetForm();
     }
 }
@@ -448,23 +612,68 @@ async function monitorScan() {
             const response = await fetch('/api/status');
             const data = await response.json();
             
-            document.getElementById('progressText').textContent = 
-                data.current_task || 'Processando...';
+            // Atualizar progresso percentual
+            const progressPercent = Math.max(0, Math.min(100, data.progress || 0));
+            document.getElementById('progressFill').style.width = progressPercent + '%';
+            document.getElementById('progressPercent').textContent = progressPercent + '%';
+            
+            // Atualizar etapa atual
+            if (data.current_task) {
+                document.getElementById('currentStepTitle').textContent = data.current_task;
+                if (data.status_message) {
+                    document.getElementById('currentStepDesc').textContent = data.status_message;
+                }
+            }
+            
+            // Atualizar tempos
+            const elapsedSeconds = Math.floor((Date.now() - scanStartTime) / 1000);
+            document.getElementById('elapsedTime').textContent = formatTime(elapsedSeconds);
+            
+            // Estimar tempo restante baseado no progresso
+            if (progressPercent > 5) {
+                const estimatedTotal = Math.floor((elapsedSeconds / progressPercent) * 100);
+                const remainingSeconds = Math.max(0, estimatedTotal - elapsedSeconds);
+                document.getElementById('estimatedTime').textContent = 
+                    remainingSeconds > 0 ? `~${formatTime(remainingSeconds)}` : '✓ Finalizando...';
+            }
+            
+            // Mudar dica a cada 10 segundos
+            if (elapsedSeconds % 15 === 0 && elapsedSeconds > 0) {
+                document.getElementById('tipText').textContent = getRandomTip();
+            }
             
             if (!data.running) {
                 clearInterval(interval);
                 
                 if (data.error) {
-                    alert('Erro durante a varredura: ' + data.error);
+                    showError(data.error);
                     resetForm();
                 } else {
-                    showResults();
+                    // Pequeno delay para ver 100%
+                    document.getElementById('progressPercent').textContent = '100%';
+                    document.getElementById('progressFill').style.width = '100%';
+                    document.getElementById('currentStepTitle').textContent = '✅ Reconhecimento Concluído!';
+                    document.getElementById('currentStepDesc').textContent = 'Gerando relatórios finais...';
+                    
+                    setTimeout(showResults, 1500);
                 }
             }
         } catch (error) {
             console.error('Erro ao verificar status:', error);
         }
     }, 1000);
+}
+
+function showError(errorMsg) {
+    const errorElement = document.getElementById('currentStepTitle');
+    errorElement.textContent = '❌ Erro durante a varredura';
+    errorElement.style.color = '#f44336';
+    
+    const descElement = document.getElementById('currentStepDesc');
+    descElement.textContent = errorMsg;
+    descElement.style.color = '#f44336';
+    
+    alert('❌ Erro: ' + errorMsg);
 }
 
 function showResults() {
@@ -490,6 +699,52 @@ function resetForm() {
     scanBtn.disabled = false;
     statusSection.style.display = 'none';
     resultsSection.style.display = 'none';
+    // Resetar estado global
+    currentScanDomain = null;
+    scanStartTime = null;
+}
+
+function showScanError(errorMsg) {
+    // Mostrar erro no statusSection de forma visual
+    statusSection.style.display = 'block';
+    resultsSection.style.display = 'none';
+    
+    // Atualizar UI com erro
+    document.getElementById('currentStepTitle').innerHTML = '<i class="fas fa-exclamation-circle" style="color: #f44336;"></i> Erro ao Iniciar Varredura';
+    document.getElementById('currentStepTitle').style.color = '#f44336';
+    
+    document.getElementById('currentStepDesc').textContent = errorMsg;
+    document.getElementById('currentStepDesc').style.color = '#f44336';
+    
+    // Resetar progresso
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressPercent').textContent = '0%';
+    
+    // Mostrar botão de tentar novamente
+    const retryBtnHTML = `
+        <div style="margin-top: 20px; text-align: center;">
+            <button onclick="() => { statusSection.style.display = 'none'; domainInput.focus(); }" 
+                    class="btn btn-primary" style="margin-right: 10px;">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </button>
+            <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                Se a varredura anterior não finalizou, aguarde alguns segundos antes de tentar novamente.
+            </p>
+        </div>
+    `;
+    
+    const stepsContainer = document.querySelector('.tips-container');
+    if (stepsContainer) {
+        stepsContainer.innerHTML = retryBtnHTML;
+        stepsContainer.parentElement.style.marginTop = '20px';
+    }
+    
+    // Auto-ocultar após 5 segundos se não houver interação
+    setTimeout(() => {
+        if (statusSection.style.display === 'block' && !currentScanDomain) {
+            resetForm();
+        }
+    }, 5000);
 }
 
 async function loadReports() {

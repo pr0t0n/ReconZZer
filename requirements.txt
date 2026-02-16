@@ -1,10 +1,14 @@
 # Dependências obrigatórias para a web interface
-flask>=2.3.0
-werkzeug>=2.3.0
-requests>=2.31.0
-beautifulsoup4>=4.12.0
+# (Versões flexíveis para máxima compatibilidade)
+flask>=2.0.0
+werkzeug>=2.0.0
+requests>=2.25.0
+beautifulsoup4>=4.9.0
 
-# Dependências opcionais para ferramentas OSINT
-# (Instalar via setup.sh é recomendado)
-# theHarvester  # Instalar via: pip install theHarvester
-# whatweb       # Instalar via: apt-get ou brew
+# Dependências opcionais - instalar via setup.sh
+# python-nmap>=0.0.1          # Para integração com Nmap (opcional)
+# theHarvester                # OSINT framework (instalar via: sudo pip install theHarvester)
+
+# Nota: Não use pip para instalar:
+# - theHarvester: instalar via setup.sh (tem melhor gerenciamento de dependências)
+# - nmap, dig, subfinder, nuclei, ffuf, nikto, dirb: instalar via setup.sh
