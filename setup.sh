@@ -1,47 +1,69 @@
 #!/bin/bash
+# Setup script para instalar dependências do ReconZZer
+# Compatível com Debian/Ubuntu
 
-# Script para instalar as dependências do sistema operacional para o AutoRecon (Debian/Ubuntu)
+set -e  # Sair em caso de erro
 
-echo "[+] Atualizando pacotes do sistema..."
-sudo apt update
-sudo apt upgrade -y
+log_info() {
+    echo -e "\033[1;32m[✓]\033[0m $1"
+}
 
-echo "[+] Instalando ferramentas essenciais: git, wget, nmap, dnsutils (para dig)..."
-sudo apt install -y git wget nmap dnsutils -y
+log_warn() {
+    echo -e "\033[1;33m[!]\033[0m $1"
+}
 
-echo "[+] Instalando Go (Golang) para subfinder e nuclei..."
-sudo apt install -y golang
+log_error() {
+    echo -e "\033[1;31m[✗]\033[0m $1" >&2
+}
 
-# Configurar GOPATH e adicionar binários do Go ao PATH
+# Verificar se é root
+if [[ $EUID -ne 0 ]]; then
+    log_error "Este script deve ser executado como root (use sudo)"
+    exit 1
+fi
+
+log_info "Atualizando pacotes do sistema..."
+apt update && apt upgrade -y
+
+log_info "Instalando ferramentas essenciais: git, wget, nmap, dnsutils..."
+apt install -y git wget nmap dnsutils
+
+log_info "Instalando Go (Golang)..."
+apt install -y golang-go
+
+# Configurar GOPATH
 export GOPATH=${GOPATH:-$HOME/go}
 export PATH=$PATH:$GOPATH/bin
 
-echo "[+] Instalando subfinder..."
+log_info "Instalando subfinder..."
 go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 
-echo "[+] Instalando nuclei..."
+log_info "Instalando nuclei..."
 go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
 
-echo "[+] Instalando TheHarvester..."
-pip3 install theHarvester
-
-echo "[+] Instalando Nikto..."
-sudo apt install -y nikto
-
-echo "[+] Instalando Dirb (para enumeração de diretórios)..."
-sudo apt install -y dirb
-
-echo "[+] Instalando FFUF (para fuzzing e enumeração avançada)..."
+log_info "Instalando FFUF..."
 go install -v github.com/ffuf/ffuf@latest
 
-# Adicionar o diretório de binários do Go ao PATH permanentemente (para o usuário atual)
-if ! grep -q "export GOPATH=\"${GOPATH}\"" ~/.bashrc; then
+log_info "Instalando TheHarvester..."
+pip3 install theHarvester
+
+log_info "Instalando Nikto..."
+apt install -y nikto
+
+log_info "Instalando Dirb..."
+apt install -y dirb
+
+# Adicionar GOPATH ao PATH permanentemente
+if ! grep -q "export GOPATH=" ~/.bashrc; then
     echo "export GOPATH=\"${GOPATH}\"" >> ~/.bashrc
+    log_info "GOPATH adicionado ao ~/.bashrc"
 fi
 
-if ! grep -q "export PATH=\"$PATH\"" ~/.bashrc; then
-    echo "export PATH=\"$PATH\"" >> ~/.bashrc
+if ! grep -q "$GOPATH/bin" ~/.bashrc; then
+    echo "export PATH=\"\$PATH:${GOPATH}/bin\"" >> ~/.bashrc
+    log_info "PATH do Go adicionado ao ~/.bashrc"
 fi
 
-echo "[+] Instalação das dependências do sistema e Python concluída."
-
+log_info "Instalação concluída com sucesso!"
+log_warn "Execute o seguinte comando para aplicar as alterações de PATH:"
+echo "    source ~/.bashrc"

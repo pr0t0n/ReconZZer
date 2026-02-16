@@ -1,274 +1,355 @@
-
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
+"""
+ReconZZer - Automação da Fase de Reconhecimento do Cyber Kill Chain
+Script principal para coleta de informações sobre domínios alvo.
+"""
 
 import subprocess
 import json
 import argparse
+import logging
 import os
-import requests
-from bs4 import BeautifulSoup
+from typing import Dict, List, Optional
+from pathlib import Path
 
-def run_command(command, env=None, timeout=300):
+# Configuração de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s',
+)
+logger = logging.getLogger(__name__)
+
+# Constantes
+DEFAULT_TIMEOUT = 300
+ENHANCED_TIMEOUT = 600
+GO_BIN_PATHS = ["/snap/bin", "/home/ubuntu/go/bin"]
+WORDLIST_PATH = "/usr/share/wordlists/dirb/common.txt"
+REPORTS_DIR = "reports"
+
+
+def _setup_go_env() -> Dict[str, str]:
+    """Prepara variáveis de ambiente para ferramentas Go."""
+    env = os.environ.copy()
+    current_path = env.get("PATH", "")
+    env["PATH"] = f"{current_path}:{':'.join(GO_BIN_PATHS)}"
+    return env
+
+
+def run_command(command: str, env: Optional[Dict] = None, timeout: int = DEFAULT_TIMEOUT) -> str:
     """Executa um comando no shell e retorna a saída."""
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True, env=env, timeout=timeout)
-        return result.stdout
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+            timeout=timeout
+        )
+        return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Comando falhou: {e.cmd}")
-        print(f"[ERROR] Saída padrão: {e.stdout}")
-        print(f"[ERROR] Saída de erro: {e.stderr}")
-        return f"Erro: {e.stderr}"
+        error_msg = e.stderr or e.stdout or str(e)
+        logger.error(f"Falha no comando: {e.cmd}\nErro: {error_msg}")
+        return ""
     except subprocess.TimeoutExpired:
-        print(f"[ERROR] Comando excedeu o tempo limite ({timeout}s): {command}")
-        return f"Erro: Tempo limite excedido ({timeout}s)"
+        logger.error(f"Timeout excedido ({timeout}s): {command}")
+        return ""
 
-def get_subdomains(domain):
+
+def get_subdomains(domain: str) -> List[str]:
     """Obtém subdomínios usando subfinder."""
-    print(f"[*] Enumerando subdomínios para {domain} com subfinder...")
+    logger.info(f"Enumerando subdomínios para {domain}...")
     command = f"subfinder -d {domain} -silent"
-    env = os.environ.copy()
-    env["PATH"] = f"{env.get("PATH", "")}:/snap/bin:/home/ubuntu/go/bin"
-    subdomains_str = run_command(command, env=env)
-    subdomains = subdomains_str.strip().split("\n")
-    return [s for s in subdomains if s] # Remove linhas em branco
+    output = run_command(command, env=_setup_go_env())
+    
+    if not output:
+        return []
+    
+    subdomains = [s.strip() for s in output.split("\n") if s.strip()]
+    logger.info(f"Encontrados {len(subdomains)} subdomínios")
+    return subdomains
 
-def get_dns_info(domain):
+
+def get_dns_info(domain: str) -> Dict[str, List[str]]:
     """Obtém informações DNS usando dig."""
-    print(f"[*] Obtendo informações DNS para {domain} com dig...")
+    logger.info(f"Obtendo informações DNS para {domain}...")
     records = ["A", "MX", "NS", "TXT"]
     dns_info = {}
+    
     for record in records:
         command = f"dig +short {domain} {record}"
-        dns_info[record] = run_command(command).strip().split("\n")
+        output = run_command(command)
+        dns_info[record] = [line.strip() for line in output.split("\n") if line.strip()]
+    
     return dns_info
 
-def port_scan(domain):
-    """Realiza uma varredura de portas usando nmap."""
-    print(f"[*] Realizando varredura de portas em {domain} com nmap...")
-    command = f"nmap -F {domain}" # -F para varredura rápida
+
+def port_scan(target: str) -> str:
+    """Realiza varredura de portas com nmap."""
+    logger.info(f"Varredura de portas em {target}...")
+    command = f"nmap -F {target}"
     return run_command(command)
 
-def run_theharvester(domain):
+
+def run_theharvester(domain: str) -> str:
     """Executa TheHarvester para OSINT."""
-    print(f"[*] Executando TheHarvester para {domain}...")
-    # TheHarvester pode gerar muitos resultados, limitando a fontes comuns
+    logger.info(f"Executando TheHarvester...")
     command = f"theHarvester -d {domain} -b google,linkedin,twitter -l 50"
-    return run_command(command, timeout=600) # Aumentar timeout para TheHarvester
+    return run_command(command, timeout=ENHANCED_TIMEOUT)
 
-def run_nikto(target_url):
+
+def run_nikto(target_url: str) -> str:
     """Executa Nikto para varredura de vulnerabilidades web."""
-    print(f"[*] Executando Nikto em {target_url}...")
-    # Nikto pode ser barulhento, usar -host para especificar o alvo
+    logger.info(f"Executando Nikto...")
     command = f"nikto -h {target_url}"
-    return run_command(command, timeout=600)
+    return run_command(command, timeout=ENHANCED_TIMEOUT)
 
-def run_nuclei(target_url):
-    """Executa Nuclei para varredura de vulnerabilidades e informações."""
-    print(f"[*] Executando Nuclei em {target_url}...")
-    # Executa com templates padrão para informações e vulnerabilidades de baixo risco
+
+def run_nuclei(target_url: str) -> str:
+    """Executa Nuclei para varredura de vulnerabilidades."""
+    logger.info(f"Executando Nuclei...")
     command = f"nuclei -u {target_url} -silent -severity info,low"
-    env = os.environ.copy()
-    env["PATH"] = f"{env.get("PATH", "")}:/snap/bin:/home/ubuntu/go/bin"
-    return run_command(command, env=env, timeout=600)
+    return run_command(command, env=_setup_go_env(), timeout=ENHANCED_TIMEOUT)
 
-def run_dirb(target_url):
+
+def run_dirb(target_url: str) -> str:
     """Executa Dirb para enumeração de diretórios."""
-    print(f"[*] Executando Dirb em {target_url}...")
-    # Usar wordlist padrão e saída para stdout
-    command = f"dirb {target_url} /usr/share/dirb/wordlists/common.txt -o /dev/stdout"
-    return run_command(command, timeout=600)
+    logger.info(f"Executando Dirb...")
+    command = f"dirb {target_url} {WORDLIST_PATH} -o /dev/stdout"
+    return run_command(command, timeout=ENHANCED_TIMEOUT)
 
-def run_ffuf(target_url):
-    """Executa FFUF para fuzzing e enumeração avançada."""
-    print(f"[*] Executando FFUF em {target_url}...")
-    # Exemplo básico de fuzzing de diretórios/arquivos
-    command = f"ffuf -w /usr/share/wordlists/dirb/common.txt:FUZZ -u {target_url}/FUZZ -mc 200,204,301,302,307,401,403 -recursion -recursion-depth 1"
-    env = os.environ.copy()
-    env["PATH"] = f"{env.get("PATH", "")}:/snap/bin:/home/ubuntu/go/bin"
-    return run_command(command, env=env, timeout=600)
 
-def get_osint_brazuca_urls():
-    """Lê as URLs do arquivo OSINT.txt."""
+def run_ffuf(target_url: str) -> str:
+    """Executa FFUF para fuzzing."""
+    logger.info(f"Executando FFUF...")
+    command = (
+        f"ffuf -w {WORDLIST_PATH}:FUZZ -u {target_url}/FUZZ "
+        "-mc 200,204,301,302,307,401,403 -recursion -recursion-depth 1"
+    )
+    return run_command(command, env=_setup_go_env(), timeout=ENHANCED_TIMEOUT)
+
+
+def get_osint_brazuca_urls() -> List[str]:
+    """Lê URLs do arquivo OSINT.txt."""
+    osint_file = Path(__file__).parent / "osint_data" / "OSINT.txt"
+    
     try:
-        script_dir = os.path.dirname(__file__)
-        osint_file_path = os.path.join(script_dir, "osint_data", "OSINT.txt")
-        with open(osint_file_path, "r") as f:
+        with open(osint_file, "r") as f:
             return [line.strip() for line in f.readlines() if line.strip()]
     except FileNotFoundError:
-        print("[ERROR] Arquivo OSINT.txt não encontrado em osint_data/")
+        logger.warning(f"Arquivo OSINT.txt não encontrado em {osint_file}")
         return []
 
-def generate_json_report(data, filename):
-    """Gera um relatório em formato JSON."""
-    print(f"[*] Gerando relatório JSON: {filename}...")
-    with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
 
-def generate_html_report(data, filename):
-    """Gera um relatório em formato HTML."""
-    print(f"[*] Gerando relatório HTML: {filename}...")
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Relatório de Reconhecimento para {data["domain"]}</title>
-        <style>
-            body {{ font-family: sans-serif; margin: 2em; background-color: #f8f8f8; color: #333; }}
-            h1 {{ color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 0.5em; }}
-            h2 {{ color: #007bff; margin-top: 1.5em; }}
-            pre {{ background-color: #e9ecef; padding: 1em; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }}
-            .section {{ margin-bottom: 2em; border: 1px solid #dee2e6; border-radius: 5px; padding: 1.5em; background-color: #fff; }}
-            ul {{ list-style-type: none; padding: 0; }}
-            li {{ margin-bottom: 0.5em; }}
-        </style>
-    </head>
-    <body>
-        <h1>Relatório de Reconhecimento para {data["domain"]}</h1>
+def generate_json_report(data: Dict, filename: str) -> None:
+    """Gera relatório em formato JSON."""
+    logger.info(f"Gerando relatório JSON...")
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def generate_html_report(data: Dict, filename: str) -> None:
+    """Gera relatório em formato HTML."""
+    logger.info(f"Gerando relatório HTML...")
+    
+    def format_list(items: List[str]) -> str:
+        """Formata lista em HTML."""
+        return "\n".join(f"<li>{item}</li>" for item in items if item)
+    
+    def format_subdomain_scans(scans: Dict[str, str]) -> str:
+        """Formata varreduras de subdomínios."""
+        html = ""
+        for subdomain, scan in scans.items():
+            if scan:
+                html += f"""
+        <div class="section">
+            <h2>Varredura de Portas - {subdomain}</h2>
+            <pre>{scan}</pre>
+        </div>"""
+        return html
+    
+    html_content = f"""<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Reconhecimento - {data["domain"]}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 30px;
+        }}
+        h1 {{
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }}
+        h2 {{
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            padding-left: 10px;
+        }}
+        .section {{
+            margin-bottom: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #fafafa;
+            transition: box-shadow 0.3s ease;
+        }}
+        .section:hover {{
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }}
+        pre {{
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            line-height: 1.4;
+            font-size: 13px;
+        }}
+        ul {{ list-style: none; padding: 0; }}
+        li {{
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }}
+        li:last-child {{ border-bottom: none; }}
+        a {{ color: #667eea; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Relatório de Reconhecimento</h1>
+        <p><strong>Domínio:</strong> {data["domain"]}</p>
 
         <div class="section">
-            <h2>Informações DNS</h2>
-            <pre>{json.dumps(data["dns_info"], indent=4)}</pre>
+            <h2>📋 Informações DNS</h2>
+            <pre>{json.dumps(data["dns_info"], indent=2, ensure_ascii=False)}</pre>
         </div>
 
         <div class="section">
-            <h2>Subdomínios</h2>
-            <ul>
-                {"\n".join([f"<li>{sub}</li>" for sub in data["subdomains"]])}
-            </ul>
+            <h2>🌐 Subdomínios ({len(data["subdomains"])})</h2>
+            <ul>{format_list(data["subdomains"])}</ul>
         </div>
 
         <div class="section">
-            <h2>Varredura de Portas (Nmap)</h2>
+            <h2>🔌 Varredura de Portas - Domínio Principal</h2>
             <pre>{data["port_scan"]["main_domain"]}</pre>
         </div>
 
-        {"".join([f"""
-        <div class="section">
-            <h2>Varredura de Portas (Nmap) - {sub}</h2>
-            <pre>{scan}</pre>
-        </div>
-        """ for sub, scan in data["port_scan"]["subdomains"].items()])}
+        {format_subdomain_scans(data["port_scan"]["subdomains"])}
 
         <div class="section">
-            <h2>OSINT - TheHarvester</h2>
+            <h2>🕵️ OSINT - TheHarvester</h2>
             <pre>{data["osint_results"]["theharvester"]}</pre>
         </div>
 
         <div class="section">
-            <h2>Varredura Web - Nikto</h2>
+            <h2>🔐 Vulnerabilidades Web - Nikto</h2>
             <pre>{data["web_scan_results"]["nikto"]}</pre>
         </div>
 
         <div class="section">
-            <h2>Varredura Web - Nuclei</h2>
+            <h2>🎯 Vulnerabilidades - Nuclei</h2>
             <pre>{data["web_scan_results"]["nuclei"]}</pre>
         </div>
 
         <div class="section">
-            <h2>Enumeração de Diretórios - Dirb</h2>
+            <h2>📁 Enumeração de Diretórios - Dirb</h2>
             <pre>{data["web_scan_results"]["dirb"]}</pre>
         </div>
 
         <div class="section">
-            <h2>Fuzzing - FFUF</h2>
+            <h2>⚡ Fuzzing - FFUF</h2>
             <pre>{data["web_scan_results"]["ffuf"]}</pre>
         </div>
 
         <div class="section">
-            <h2>OSINT - Fontes do OSINT Brazuca</h2>
-            <ul>
-                {"".join([f"<li><a href=\"{url}\">{url}</a></li>" for url in data["osint_results"]["osint_brazuca_urls"]])}
-            </ul>
+            <h2>🇧🇷 Fontes OSINT Brazuca</h2>
+            <ul>{format_list([f'<a href="{url}" target="_blank">{url}</a>' for url in data["osint_results"]["osint_brazuca_urls"]])}</ul>
         </div>
-
-    </body>
-    </html>
-    """
-    with open(filename, "w") as f:
+    </div>
+</body>
+</html>"""
+    
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Script de automação de RECON.")
-    parser.add_argument("-d", "--domain", required=True, help="Domínio alvo para o reconhecimento.")
+    parser = argparse.ArgumentParser(
+        description="ReconZZer - Automação de Reconhecimento",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Exemplo: python3 recon_script.py -d example.com"
+    )
+    parser.add_argument("-d", "--domain", required=True, help="Domínio alvo")
     args = parser.parse_args()
 
     domain = args.domain
-    target_url = f"http://{domain}" # Assumindo HTTP para varreduras web, pode ser ajustado
+    target_url = f"http://{domain}"
 
-    print(f"[+] Iniciando RECON para o domínio: {domain}")
+    logger.info(f"Iniciando reconhecimento para: {domain}")
+
     recon_data = {
         "domain": domain,
         "dns_info": {},
         "subdomains": [],
-        "port_scan": {
-            "main_domain": "",
-            "subdomains": {}
-        },
-        "osint_results": {
-            "theharvester": "",
-            "osint_brazuca_urls": []
-        },
-        "web_scan_results": {
-            "nikto": "",
-            "nuclei": "",
-            "dirb": "",
-            "ffuf": ""
-        }
+        "port_scan": {"main_domain": "", "subdomains": {}},
+        "osint_results": {"theharvester": "", "osint_brazuca_urls": []},
+        "web_scan_results": {"nikto": "", "nuclei": "", "dirb": "", "ffuf": ""}
     }
 
-    print("[+] Coletando informações DNS...")
+    # Coleta de informações
     recon_data["dns_info"] = get_dns_info(domain)
-    print("[+] Informações DNS coletadas.")
-
-    print("[+] Enumerando subdomínios...")
     recon_data["subdomains"] = get_subdomains(domain)
-    print(f"[+] {len(recon_data["subdomains"])} subdomínios encontrados.")
-
-    print("[+] Realizando varredura de portas no domínio principal com Nmap...")
     recon_data["port_scan"]["main_domain"] = port_scan(domain)
-    print("[+] Varredura de portas no domínio principal concluída.")
 
-    # Limitar a varredura de portas a 3 subdomínios para o exemplo
-    print("[+] Realizando varredura de portas em subdomínios (limitado a 3 para exemplo) com Nmap...")
-    for sub in recon_data["subdomains"][:3]:
-        recon_data["port_scan"]["subdomains"][sub] = port_scan(sub)
-    print("[+] Varredura de portas em subdomínios concluída.")
+    # Varredura de subdomínios (limitado a 3)
+    logger.info(f"Iniciando varredura de portas em subdomínios...")
+    for subdomain in recon_data["subdomains"][:3]:
+        recon_data["port_scan"]["subdomains"][subdomain] = port_scan(subdomain)
 
-    print("[+] Realizando buscas OSINT com TheHarvester...")
+    # OSINT
     recon_data["osint_results"]["theharvester"] = run_theharvester(domain)
-    print("[+] Buscas OSINT com TheHarvester concluídas.")
-
-    print("[+] Realizando varredura web com Nikto...")
-    recon_data["web_scan_results"]["nikto"] = run_nikto(target_url)
-    print("[+] Varredura web com Nikto concluída.")
-
-    print("[+] Realizando varredura web com Nuclei...")
-    recon_data["web_scan_results"]["nuclei"] = run_nuclei(target_url)
-    print("[+] Varredura web com Nuclei concluída.")
-
-    print("[+] Realizando enumeração de diretórios com Dirb...")
-    recon_data["web_scan_results"]["dirb"] = run_dirb(target_url)
-    print("[+] Enumeração de diretórios com Dirb concluída.")
-
-    print("[+] Realizando fuzzing com FFUF...")
-    recon_data["web_scan_results"]["ffuf"] = run_ffuf(target_url)
-    print("[+] Fuzzing com FFUF concluído.")
-
-    print("[+] Coletando URLs do OSINT Brazuca...")
     recon_data["osint_results"]["osint_brazuca_urls"] = get_osint_brazuca_urls()
-    print("[+] URLs do OSINT Brazuca coletadas.")
+
+    # Varreduras web
+    recon_data["web_scan_results"]["nikto"] = run_nikto(target_url)
+    recon_data["web_scan_results"]["nuclei"] = run_nuclei(target_url)
+    recon_data["web_scan_results"]["dirb"] = run_dirb(target_url)
+    recon_data["web_scan_results"]["ffuf"] = run_ffuf(target_url)
 
     # Gerar relatórios
-    reports_dir = "reports"
-    os.makedirs(reports_dir, exist_ok=True)
+    Path(REPORTS_DIR).mkdir(exist_ok=True)
+    
+    json_file = Path(REPORTS_DIR) / f"recon_report_{domain}.json"
+    html_file = Path(REPORTS_DIR) / f"recon_report_{domain}.html"
 
-    json_report_file = os.path.join(reports_dir, f"recon_report_{domain}.json")
-    html_report_file = os.path.join(reports_dir, f"recon_report_{domain}.html")
+    generate_json_report(recon_data, str(json_file))
+    generate_html_report(recon_data, str(html_file))
 
-    generate_json_report(recon_data, json_report_file)
-    generate_html_report(recon_data, html_report_file)
+    logger.info(f"✓ Reconhecimento concluído!")
+    logger.info(f"  JSON: {json_file}")
+    logger.info(f"  HTML: {html_file}")
 
-    print(f"\n[+] Relatórios gerados: {json_report_file}, {html_report_file}")
 
 if __name__ == "__main__":
     main()

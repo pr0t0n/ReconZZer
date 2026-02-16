@@ -1,0 +1,53 @@
+# Relatórios gerados
+reports/*.json
+reports/*.html
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ambientes virtuais
+venv/
+env/
+ENV/
+.venv
+
+# Arquivo de ambiente
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependências
+node_modules/
+
+# Arquivos temporários
+.tmp/
+*.tmp
+tmp/
+
+# Flask
+instance/
+.webassets-cache
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+

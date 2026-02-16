@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ReconZZer{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Seção de Input -->
+    <div class="scan-section">
+        <div class="scan-header">
+            <h1><i class="fas fa-radar"></i> Iniciar Reconhecimento</h1>
+            <p>Digite o domínio alvo para começar a varredura</p>
+        </div>
+
+        <div class="scan-form">
+            <div class="form-group">
+                <label for="domain">Domínio Alvo</label>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="domain" 
+                        placeholder="exemplo.com" 
+                        class="form-control"
+                        autocomplete="off"
+                    >
+                    <button id="scanBtn" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play"></i> Iniciar Varredura
+                    </button>
+                </div>
+                <small>Exemplos: google.com, github.com, exemplo.com.br</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Status -->
+    <div id="statusSection" class="status-section" style="display: none;">
+        <div class="status-card">
+            <div class="status-header">
+                <h2><i class="fas fa-hourglass-start"></i> Reconhecimento em Progresso</h2>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p id="progressText" class="progress-text">Iniciando varredura...</p>
+            </div>
+            <p id="statusMessage" class="status-message"></p>
+        </div>
+    </div>
+
+    <!-- Seção de Resultados -->
+    <div id="resultsSection" class="results-section" style="display: none;">
+        <div class="results-card">
+            <div class="results-header">
+                <h2><i class="fas fa-check-circle"></i> Reconhecimento Concluído</h2>
+            </div>
+            <div class="results-info">
+                <p><strong>Domínio:</strong> <span id="resultDomain"></span></p>
+                <p><strong>Data/Hora:</strong> <span id="resultTime"></span></p>
+            </div>
+            <div class="results-actions">
+                <a id="viewHtmlBtn" href="#" class="btn btn-success" target="_blank">
+                    <i class="fas fa-eye"></i> Visualizar Relatório HTML
+                </a>
+                <a id="downloadJsonBtn" href="#" class="btn btn-info" download>
+                    <i class="fas fa-download"></i> Download JSON
+                </a>
+                <button class="btn btn-secondary" onclick="resetForm()">
+                    <i class="fas fa-redo"></i> Novo Reconhecimento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Relatórios -->
+    <div id="relatorios" class="reports-section">
+        <div class="reports-header">
+            <h2><i class="fas fa-file-alt"></i> Relatórios Anteriores</h2>
+            <p>Clique para visualizar ou baixar relatórios gerados anteriormente</p>
+        </div>
+        <div id="reportsList" class="reports-list">
+            <p class="placeholder">Nenhum relatório disponível</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.dashboard-container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+/* Seção de Scan */
+.scan-section {
+    background: white;
+    border-radius: 8px;
+    padding: 40px;
+    margin-bottom: 40px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.scan-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.scan-header h1 {
+    font-size: 2.2em;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.scan-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.form-control {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group small {
+    margin-top: 8px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-success {
+    background: #4caf50;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #45a049;
+}
+
+.btn-info {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #0b7dda;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-lg {
+    padding: 14px 32px;
+    font-size: 1.1em;
+}
+
+/* Seção de Status */
+.status-section {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 40px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.status-card {
+    border-left: 4px solid #667eea;
+    padding-left: 20px;
+}
+
+.status-header h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+}
+
+.progress-container {
+    margin-bottom: 20px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    color: #666;
+    font-size: 0.95em;
+}
+
+.status-message {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    color: #333;
+}
+
+/* Seção de Resultados */
+.results-section {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 40px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.results-card {
+    border-left: 4px solid #4caf50;
+    padding-left: 20px;
+}
+
+.results-header h2 {
+    color: #4caf50;
+    margin-bottom: 20px;
+}
+
+.results-info {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.results-info p {
+    margin: 8px 0;
+    color: #333;
+}
+
+.results-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.results-actions .btn {
+    flex: 1;
+    min-width: 200px;
+    justify-content: center;
+}
+
+/* Seção de Relatórios */
+.reports-section {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.reports-header h2 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.reports-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.report-card {
+    background: #f9f9f9;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.report-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.report-domain {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.report-date {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.report-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.report-actions .btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.9em;
+}
+
+.placeholder {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+}
+
+@media (max-width: 768px) {
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .results-actions {
+        flex-direction: column;
+    }
+    
+    .results-actions .btn {
+        min-width: auto;
+    }
+    
+    .reports-list {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const domainInput = document.getElementById('domain');
+const scanBtn = document.getElementById('scanBtn');
+const statusSection = document.getElementById('statusSection');
+const resultsSection = document.getElementById('resultsSection');
+const reportsList = document.getElementById('reportsList');
+
+let currentScanDomain = null;
+
+// Event Listeners
+scanBtn.addEventListener('click', startScan);
+domainInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') startScan();
+});
+
+// Carregar relatórios ao abrir a página
+document.addEventListener('DOMContentLoaded', loadReports);
+
+async function startScan() {
+    const domain = domainInput.value.trim();
+    
+    if (!domain) {
+        alert('Por favor, digite um domínio válido');
+        return;
+    }
+    
+    statusSection.style.display = 'block';
+    resultsSection.style.display = 'none';
+    scanBtn.disabled = true;
+    domainInput.disabled = true;
+    currentScanDomain = domain;
+    
+    try {
+        const response = await fetch('/api/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert('Erro: ' + (error.error || 'Falha ao iniciar varredura'));
+            resetForm();
+            return;
+        }
+        
+        // Monitorar progresso
+        monitorScan();
+    } catch (error) {
+        console.error(error);
+        alert('Erro de conexão: ' + error.message);
+        resetForm();
+    }
+}
+
+async function monitorScan() {
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/status');
+            const data = await response.json();
+            
+            document.getElementById('progressText').textContent = 
+                data.current_task || 'Processando...';
+            
+            if (!data.running) {
+                clearInterval(interval);
+                
+                if (data.error) {
+                    alert('Erro durante a varredura: ' + data.error);
+                    resetForm();
+                } else {
+                    showResults();
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao verificar status:', error);
+        }
+    }, 1000);
+}
+
+function showResults() {
+    statusSection.style.display = 'none';
+    resultsSection.style.display = 'block';
+    
+    document.getElementById('resultDomain').textContent = currentScanDomain;
+    document.getElementById('resultTime').textContent = new Date().toLocaleString('pt-BR');
+    
+    const htmlFile = `recon_report_${currentScanDomain}.html`;
+    const jsonFile = `recon_report_${currentScanDomain}.json`;
+    
+    document.getElementById('viewHtmlBtn').href = `/view/${currentScanDomain}`;
+    document.getElementById('downloadJsonBtn').href = `/reports/${jsonFile}`;
+    document.getElementById('downloadJsonBtn').download = jsonFile;
+    
+    loadReports();
+}
+
+function resetForm() {
+    domainInput.value = '';
+    domainInput.disabled = false;
+    scanBtn.disabled = false;
+    statusSection.style.display = 'none';
+    resultsSection.style.display = 'none';
+}
+
+async function loadReports() {
+    try {
+        const response = await fetch('/api/reports');
+        const data = await response.json();
+        
+        if (!data.reports || data.reports.length === 0) {
+            reportsList.innerHTML = '<p class="placeholder">Nenhum relatório disponível</p>';
+            return;
+        }
+        
+        reportsList.innerHTML = data.reports.map(report => `
+            <div class="report-card">
+                <div class="report-domain">${report.domain}</div>
+                <div class="report-date">${new Date(report.timestamp).toLocaleString('pt-BR')}</div>
+                <div class="report-actions">
+                    <a href="/view/${report.domain}" target="_blank" class="btn btn-success" style="flex: 1; padding: 8px; font-size: 0.9em;">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="/reports/${report.json_file}" download class="btn btn-info" style="flex: 1; padding: 8px; font-size: 0.9em;">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Erro ao carregar relatórios:', error);
+        reportsList.innerHTML = '<p class="placeholder">Erro ao carregar relatórios</p>';
+    }
+}
+</script>
+{% endblock %}
