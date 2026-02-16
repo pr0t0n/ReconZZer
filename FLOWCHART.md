@@ -1,33 +1,70 @@
-# 🎯 Visual da Aplicação Web ReconZZer
+# 🔄 Fluxo Completo de Instalação e Uso - ReconZZer 2.0
 
-## Fluxo de Uso
+## Visão Geral do Sistema
 
 ```
-USER OPENS BROWSER
-       │
-       ▼
-  http://localhost:8080
-       │
-       ▼
-   app.py:index()
-       │
-       └─ check_all_requirements()
-              │
-              ├─ System tools (nmap, dig, git, wget)
-              ├─ Go tools (subfinder, nuclei, ffuf)
-              ├─ Other tools (theHarvester, nikto, dirb)
-              └─ Python packages (requests, beautifulsoup4, flask)
-       │
-       ▼
-  ALL REQUIREMENTS MET? ────────────────────┐
-       │                                    │
-      YES                                  NO
-       │                                    │
-       ▼                                    ▼
-  dashboard.html                    install.html
-  ┌──────────────────┐              ┌──────────────────┐
-  │ 🔍 Reconhecimento │              │ ⚙️  Requisitos  │
-  │                  │              │                  │
+┌──────────────────────────────────────────────────────────────┐
+│                    ReconZZer Application                     │
+│                                                              │
+│  Frontend (HTML/CSS/JS) ← → Backend (Flask)                 │
+│                                ↓                             │
+│                    System Tools (nmap, dig, etc)            │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📋 Fluxo de Instalação Completa
+
+```
+START: Clone Repository
+  ↓
+chmod +x run.sh setup.sh
+  ↓
+  ┌─── User Choice ───┐
+  │                   │
+  v                   v
+./run.sh          sudo ./setup.sh
+  │                   │
+  v                   v
+[Python/Web]    [System Tools]
+  │                   │
+  └─── Optional ──────┘
+  │
+  ├─ Verificar Python3
+  │ └─ ✓ Encontrado / ✗ Instale
+  │
+  ├─ Criar venv
+  │ └─ → Ativado
+  │
+  ├─ Instalar Python deps:
+  │ ├─ flask ✓
+  │ ├─ werkzeug ✓
+  │ ├─ requests ✓
+  │ └─ beautifulsoup4 ✓
+  │
+  ├─ Verificar ferramentas:
+  │ ├─ [ESSENCIAIS]
+  │ │ ├─ nmap ✓/✗
+  │ │ └─ dig ✓/✗
+  │ │
+  │ └─ [OPCIONAIS]
+  │   ├─ subfinder ✓/⚠
+  │   ├─ nuclei ✓/⚠
+  │   ├─ ffuf ✓/⚠
+  │   ├─ nikto ✓/⚠
+  │   ├─ dirb ✓/⚠
+  │   └─ theHarvester ✓/⚠
+  │
+  └─ Iniciar Flask:8080 ✓
+     └─ Abrir navegador
+        └─ http://localhost:8080
+           ↓
+        [WEB UI]
+         Dashboard
+         ↙      ↖
+      Install   Scan
+```
   │ [example.com]🔵 │              │ ❌ nmap           │
   │ [Iniciar]       │              │ ✅ dig            │
   │                  │              │ ❌ subfinder      │
@@ -442,5 +479,5 @@ CLIENT                              SERVER
 ---
 
 **Última atualização:** Fevereiro 16, 2026  
-**Versão:** 1.0 Web Edition  
+**Versão:** 2.0 (Intelligent Setup)  
 **Status:** ✅ Pronto para Teste

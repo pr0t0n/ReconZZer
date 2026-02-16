@@ -1,51 +1,70 @@
-# 🚀 Quick Start - ReconZZer Web
+# ⚡ ReconZZer v2.0 - Início Rápido
 
-Comece a usar ReconZZer em **menos de 5 minutos**!
+**⏱️ Tempo estimado**: 5 minutos (com internet)
 
-## Pré-requisitos
-
-- **Linux** (Ubuntu/Debian recomendado)
-- **Python 3.8+**
-- **Conexão com Internet**
-- **Privilégios sudo** (para instalar ferramentas)
-
-## 1️⃣ Clonar o Repositório
+## 🚀 Passo 1: Preparação (1 min)
 
 ```bash
-git clone https://github.com/pr0t0n/ReconZZer.git
 cd ReconZZer
+chmod +x run.sh setup.sh check_deps.py
 ```
 
-## 2️⃣ Permissões dos Scripts
+## ⚙️ Passo 2: Escolha o Seu Caminho
 
-```bash
-chmod +x setup.sh
-chmod +x run.sh
-chmod +x test.py
-```
-
-## 3️⃣ Instalar Dependências
-
-```bash
-# Instalar ferramentas do sistema
-sudo ./setup.sh
-
-# Ativar nova sessão ou recarregar PATH
-source ~/.bashrc
-
-# Instalar dependências Python
-pip install -r requirements.txt
-```
-
-**⏱️ Tempo estimado: 5-10 minutos** (dependendo da velocidade da rede)
-
-## 4️⃣ Iniciar a Aplicação
-
+### Opção A: Apenas Web (Rápido - 2 min)
 ```bash
 ./run.sh
 ```
+✅ Instala tudo automaticamente  
+✅ Abre http://localhost:8080  
+⚠️  Funções avançadas limitadas  
 
-Você verá algo como:
+### Opção B: Instalação Completa (Recomendado - 10 min)
+```bash
+sudo ./setup.sh
+./run.sh
+```
+✅ Instala TODAS as ferramentas  
+✅ Acesso a todas as funcionalidades  
+✓ Detecta seu SO automaticamente  
+
+## 📱 Passo 3: Usar a Aplicação
+
+1. Abrir navegador: **http://localhost:8080**
+2. Ver aba "Install" para verificar dependências
+3. Ir para "Scan" e digitar um domínio
+4. Clicar "SCAN" e aguardar resultados
+
+## 🔍 Se Algo Não Funcionar
+
+### Verificar dependências:
+```bash
+python3 check_deps.py
+```
+
+### Instalar dependências faltantes:
+```bash
+# Se faltar ferramentas do sistema
+sudo ./setup.sh
+
+# Se faltar pacotes Python
+./run.sh  # Automaticamente tenta instalar
+```
+
+### Parar o servidor:
+```bash
+Ctrl + C
+```
+
+## 📚 Documentação
+
+- **[INSTALLATION.md](INSTALLATION.md)**  - Guia detalhado
+- **[MACOS_SETUP.md](MACOS_SETUP.md)**    - Para macOS
+- **[README_UPDATES.md](README_UPDATES.md)** - Mudanças recentes
+- **[WEB_README.md](WEB_README.md)**      - Uso web
+- **[FLOWCHART.md](FLOWCHART.md)**        - Diagramas
+
+## 🎯 Comandos Essenciais
 
 ```
 ╔════════════════════════════════════╗
