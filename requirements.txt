@@ -1,5 +1,10 @@
-requests>=2.31.0
-beautifulsoup4>=4.12.0
-theHarvester>=4.0.0
+# Dependências obrigatórias para a web interface
 flask>=2.3.0
 werkzeug>=2.3.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# Dependências opcionais para ferramentas OSINT
+# (Instalar via setup.sh é recomendado)
+# theHarvester  # Instalar via: pip install theHarvester
+# whatweb       # Instalar via: apt-get ou brew
